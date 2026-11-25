@@ -53,9 +53,15 @@ npm run format       # Prettier write (Tailwind class sorting enabled)
 npm run format:check # Prettier check, used in review/CI
 ```
 
-Planned (added when the step lands): `npm test` (Vitest), `npm run test:e2e` (Playwright), `supabase test db` (pgTAP access-rule tests).
+Planned (added when the step lands): `npm test` (Vitest), `npm run test:e2e` (Playwright).
 
 Supabase: CLI runs via `npx supabase@3.4.0 <command>`; config is `supabase/config.jsonc`; migrations in `supabase/migrations/*.sql` are the only way to change the database. The sandbox has no Docker, so `supabase start` / `db reset` / `supabase test db` run in CI (ubuntu-latest), not locally.
+
+```bash
+npx supabase@3.4.0 db start   # local Postgres only (CI and dev machines with Docker)
+npx supabase@3.4.0 db reset   # migrations + seed.sql
+npx supabase@3.4.0 test db    # pgTAP access-rule tests (supabase/tests/*.test.sql)
+```
 
 ## Working rules
 
@@ -77,4 +83,6 @@ Supabase: CLI runs via `npx supabase@3.4.0 <command>`; config is `supabase/confi
 - 2026-11-25 (step 3, approved by team): Postgres enums for roles/statuses/flairs (per spec) instead of text+CHECK; `public.users` has NO email column — login email lives only in `auth.users`, college emails only as `email_hash` on `verifications` (strongest reading of the pseudonymity rule; deviates from the spec's illustrative `users.email` field).
 - 2026-11-25 (step 3): `reviews.is_verified` is snapshotted from approved verifications by a trigger at insert time, so a later revocation does not rewrite review history. Moderation writes (hide/remove/ban, college edits) go through the server-only service key; end users get no policies for them. The verification trigger explicitly exempts `service_role` requests (seed/admin path) so admins and seeds can set `is_verified` directly.
 - 2026-11-25 (step 3): migration validated on PGlite (Postgres 17 WASM) in a throwaway harness — 32 assertions covering all non-negotiable rules with anonymous / member / verified / service-role actors, all green. The canonical access-rule tests (pgTAP) land in step 4 and run in CI.
+- 2026-11-25 (step 4): seed data is 100% fake; college email domains use the reserved `.example` TLD so no real student can verify against a seeded college. Seed sets service_role JWT claims (the sanctioned admin path) and sets `is_verified` explicitly on review inserts.
+- 2026-11-25 (step 4): pgTAP suite `supabase/tests/0001_access_rules.test.sql` — 35 assertions with anonymous / member / verified-student roles, using pg_temp helpers that mirror PostgREST JWT claim passing. Validated locally on PGlite with pgTAP stubs; the real run happens in the CI `db-tests` job (`db start` → `db reset` → `test db`).
 - 2026-11-25: Supabase CLI v3 uses `supabase/config.jsonc` (not `config.toml`).

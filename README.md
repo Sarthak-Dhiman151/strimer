@@ -16,16 +16,18 @@ Requires Node.js 22+.
 
 ## Commands
 
-| Command                | What it does                        |
-| ---------------------- | ----------------------------------- |
-| `npm run dev`          | Dev server at http://localhost:3000 |
-| `npm run build`        | Production build                    |
-| `npm run lint`         | ESLint (flat config)                |
-| `npm run typecheck`    | TypeScript, strict mode, no emit    |
-| `npm run format`       | Prettier write (Tailwind sorting)   |
-| `npm run format:check` | Prettier check                      |
+| Command                       | What it does                               |
+| ----------------------------- | ------------------------------------------ |
+| `npm run dev`                 | Dev server at http://localhost:3000        |
+| `npm run build`               | Production build                           |
+| `npm run lint`                | ESLint (flat config)                       |
+| `npm run typecheck`           | TypeScript, strict mode, no emit           |
+| `npm run format`              | Prettier write (Tailwind sorting)          |
+| `npm run format:check`        | Prettier check                             |
+| `npx supabase@3.4.0 db reset` | Local DB: migrations + seed (needs Docker) |
+| `npx supabase@3.4.0 test db`  | pgTAP access-rule tests (needs Docker)     |
 
-Testing commands (Vitest, Playwright, pgTAP access-rule tests) are added as their steps land — see CLAUDE.md.
+Unit tests (Vitest) and e2e (Playwright) are added as their steps land — see CLAUDE.md. Database access-rule tests run in CI on every PR.
 
 ## Stack
 
