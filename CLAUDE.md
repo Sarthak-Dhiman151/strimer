@@ -53,7 +53,9 @@ npm run format       # Prettier write (Tailwind class sorting enabled)
 npm run format:check # Prettier check, used in review/CI
 ```
 
-Planned (added when the step lands): `npm test` (Vitest), `npm run test:e2e` (Playwright), `supabase test db` (pgTAP access-rule tests), `supabase db reset` / seed scripts.
+Planned (added when the step lands): `npm test` (Vitest), `npm run test:e2e` (Playwright), `supabase test db` (pgTAP access-rule tests).
+
+Supabase: CLI runs via `npx supabase@3.4.0 <command>`; config is `supabase/config.jsonc`; migrations in `supabase/migrations/*.sql` are the only way to change the database. The sandbox has no Docker, so `supabase start` / `db reset` / `supabase test db` run in CI (ubuntu-latest), not locally.
 
 ## Working rules
 
@@ -72,3 +74,7 @@ Planned (added when the step lands): `npm test` (Vitest), `npm run test:e2e` (Pl
 - Review flow: all work lands on the session branch `arena/20864b5a-strimer` via one live PR to `main`; each milestone step is a small commit the team reviews on GitHub.
 - 2026-11-25: CI (`.github/workflows/ci.yml`) is green (lint / unit tests / build + typecheck, ~30 s). Repo quirk: `pull_request` events never fired while the workflow existed only off `main`, so a TEMPORARY `push` trigger scoped to `main` + the session branch keeps CI running on every push. Remove it once the workflow is on `main` and `pull_request` triggering is verified on a later PR.
 - 2026-11-25: Sandbox has no Docker daemon, so Supabase local stack (`supabase start`, `supabase test db`) cannot run here; pgTAP access-rule tests run in CI (ubuntu runners have Docker).
+- 2026-11-25 (step 3, approved by team): Postgres enums for roles/statuses/flairs (per spec) instead of text+CHECK; `public.users` has NO email column — login email lives only in `auth.users`, college emails only as `email_hash` on `verifications` (strongest reading of the pseudonymity rule; deviates from the spec's illustrative `users.email` field).
+- 2026-11-25 (step 3): `reviews.is_verified` is snapshotted from approved verifications by a trigger at insert time, so a later revocation does not rewrite review history. Moderation writes (hide/remove/ban, college edits) go through the server-only service key; end users get no policies for them. The verification trigger explicitly exempts `service_role` requests (seed/admin path) so admins and seeds can set `is_verified` directly.
+- 2026-11-25 (step 3): migration validated on PGlite (Postgres 17 WASM) in a throwaway harness — 32 assertions covering all non-negotiable rules with anonymous / member / verified / service-role actors, all green. The canonical access-rule tests (pgTAP) land in step 4 and run in CI.
+- 2026-11-25: Supabase CLI v3 uses `supabase/config.jsonc` (not `config.toml`).
