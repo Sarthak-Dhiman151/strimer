@@ -5,6 +5,10 @@
 --   authenticated member — can post/comment/vote, cannot review or moderate
 --   authenticated verified student — can review only their verified college
 -- Fixtures are created inside the transaction and rolled back; independent of seed data.
+--
+-- NOTE: every assertion is a top-level `select is(...)`. pgTAP does not emit
+-- TAP lines for assertions called via PERFORM inside helper functions — helpers
+-- below RETURN values (e.g. the observed SQLSTATE) and the caller asserts.
 
 set search_path = public, extensions;
 
@@ -19,28 +23,30 @@ select plan(35);
 -- notification b1 = bbb00000-0000-4000-8000-0000000000b1
 
 -- ── helpers: run SQL as another role, mirroring PostgREST JWT claims ────────
-create or replace function pg_temp.expect_error(action text, who text, expected text, descr text)
-returns void language plpgsql as $$
-declare
-  v_code text;
+
+-- Runs `action` as role `who` ('anon' or an auth user id). Returns the
+-- SQLSTATE of the error it raised, or NULL if it succeeded.
+create or replace function pg_temp.try_action(action text, who text)
+returns text language plpgsql as $$
 begin
-  begin
-    if who = 'anon' then
-      perform set_config('role', 'anon', true);
-      perform set_config('request.jwt.claims', '{"role":"anon"}', true);
-    else
-      perform set_config('role', 'authenticated', true);
-      perform set_config('request.jwt.claims', '{"role":"authenticated","sub":"' || who || '"}', true);
-    end if;
-    execute action;
-  exception when others then
-    v_code := sqlstate;
-  end;
+  if who = 'anon' then
+    perform set_config('role', 'anon', true);
+    perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  else
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', '{"role":"authenticated","sub":"' || who || '"}', true);
+  end if;
+  execute action;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
-  perform is(v_code, expected, descr);
+  return null;
+exception when others then
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  return sqlstate;
 end $$;
 
+-- Runs `action` as an authenticated user; raises on error (fixture setup).
 create or replace function pg_temp.as_user(action text, who text)
 returns void language plpgsql as $$
 begin
@@ -55,20 +61,7 @@ exception when others then
   raise;
 end $$;
 
-create or replace function pg_temp.as_anon(action text)
-returns void language plpgsql as $$
-begin
-  perform set_config('role', 'anon', true);
-  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
-  execute action;
-  perform set_config('role', 'postgres', true);
-  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
-exception when others then
-  perform set_config('role', 'postgres', true);
-  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
-  raise;
-end $$;
-
+-- Runs a `select ...` as an authenticated user and returns the first column.
 create or replace function pg_temp.count_as(action text, who text)
 returns integer language plpgsql as $$
 declare
@@ -121,28 +114,28 @@ select is(
   0, 'mod_actions has no policies (deny by default to end users)');
 
 -- ── rule 1: the verification gate ───────────────────────────────────────────
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   insert into public.reviews (user_id, college_id, academics, faculty, placements, campus_hostel, campus_life, value_for_money, title, pros, cons, would_choose_again)
   values ('aaa00000-0000-4000-8000-0000000000a1', 'ccc00000-0000-4000-8000-00000000cc01', 4, 4, 4, 4, 4, 4, 'Unverified attempt',
     'Great labs and faculty access. Hostel wifi is decent. Campus life is active with many clubs and fests through the year.',
     'Placement season is stressful. Administration can be slow with paperwork and hostel allotment takes a while.',
     true)
-$ta$, 'aaa00000-0000-4000-8000-0000000000a1', '42501',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a1'), '42501',
   'unverified member cannot insert a review');
 
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   insert into public.placement_reports (user_id, college_id, branch, year, median_lpa, offers_count)
   values ('aaa00000-0000-4000-8000-0000000000a1', 'ccc00000-0000-4000-8000-00000000cc01', 'CSE', 2025, 18.5, 120)
-$ta$, 'aaa00000-0000-4000-8000-0000000000a1', '42501',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a1'), '42501',
   'unverified member cannot insert a placement report');
 
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   insert into public.reviews (user_id, college_id, academics, faculty, placements, campus_hostel, campus_life, value_for_money, title, pros, cons, would_choose_again)
   values ('aaa00000-0000-4000-8000-0000000000a2', 'ccc00000-0000-4000-8000-00000000cc02', 4, 4, 4, 4, 4, 4, 'Wrong college attempt',
     'Great labs and faculty access. Hostel wifi is decent. Campus life is active with many clubs and fests through the year.',
     'Placement season is stressful. Administration can be slow with paperwork and hostel allotment takes a while.',
     true)
-$ta$, 'aaa00000-0000-4000-8000-0000000000a2', '42501',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a2'), '42501',
   'verified student cannot review a college they are not verified for');
 
 -- ── verified review flow ────────────────────────────────────────────────────
@@ -162,19 +155,19 @@ select is(
   (select is_verified from public.reviews where user_id = 'aaa00000-0000-4000-8000-0000000000a2'),
   true, 'is_verified is snapshotted from the approved verification by trigger');
 
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   insert into public.reviews (user_id, college_id, academics, faculty, placements, campus_hostel, campus_life, value_for_money, title, pros, cons, would_choose_again)
   values ('aaa00000-0000-4000-8000-0000000000a2', 'ccc00000-0000-4000-8000-00000000cc01', 4, 4, 4, 4, 4, 4, 'Duplicate attempt',
     'Great labs and faculty access. Hostel wifi is decent. Campus life is active with many clubs and fests through the year.',
     'Placement season is stressful. Administration can be slow with paperwork and hostel allotment takes a while.',
     true)
-$ta$, 'aaa00000-0000-4000-8000-0000000000a2', '23505',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a2'), '23505',
   'a second active review for the same college is rejected');
 
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   update public.reviews set status = 'hidden'
   where user_id = 'aaa00000-0000-4000-8000-0000000000a2'
-$ta$, 'aaa00000-0000-4000-8000-0000000000a2', '42501',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a2'), '42501',
   'author cannot change their own review status (moderation-only)');
 
 select pg_temp.as_user($ta$
@@ -267,10 +260,11 @@ select is(
   1, 'hidden content stays readable to its own author');
 
 -- ── community: posts, comments, votes, best answer ──────────────────────────
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   insert into public.posts (college_id, user_id, title, body, flair)
   values ('ccc00000-0000-4000-8000-00000000cc01', 'aaa00000-0000-4000-8000-0000000000a1', 'anon post', 'body', 'discussion')
-$ta$, 'anon', '42501', 'anonymous users cannot insert posts');
+$ta$, 'anon'), '42501', 'anonymous users cannot insert posts');
+
 select pg_temp.as_user($ta$
   insert into public.posts (id, college_id, user_id, title, body, flair)
   values ('ddd00000-0000-4000-8000-0000000000d1', 'ccc00000-0000-4000-8000-00000000cc01', 'aaa00000-0000-4000-8000-0000000000a1', 'How is the hostel wifi really?', 'Choosing between hostels — is the wifi usable for classes?', 'question')
@@ -289,10 +283,10 @@ select is(
   (select comment_count from public.posts where id = 'ddd00000-0000-4000-8000-0000000000d1'),
   1, 'comment_count is maintained by trigger');
 
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   insert into public.comments (post_id, user_id, body, depth)
   values ('ddd00000-0000-4000-8000-0000000000d1', 'aaa00000-0000-4000-8000-0000000000a1', 'too deep', 5)
-$ta$, 'aaa00000-0000-4000-8000-0000000000a1', '23514',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a1'), '23514',
   'comment depth is capped at 4');
 
 select pg_temp.as_user($ta$
@@ -308,10 +302,10 @@ select is(
   (select karma from public.users where id = 'aaa00000-0000-4000-8000-0000000000a1'),
   1, 'karma equals upvotes received');
 
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   insert into public.votes (user_id, target_type, target_id, value)
   values ('aaa00000-0000-4000-8000-0000000000a1', 'post', 'ddd00000-0000-4000-8000-0000000000d1', -1)
-$ta$, 'aaa00000-0000-4000-8000-0000000000a1', '42501',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a1'), '42501',
   'downvotes are blocked (upvote-only MVP)');
 
 select pg_temp.as_user($ta$
@@ -328,10 +322,10 @@ select pg_temp.as_user($ta$
   values ('ddd00000-0000-4000-8000-0000000000d2', 'ccc00000-0000-4000-8000-00000000cc01', 'aaa00000-0000-4000-8000-0000000000a1', 'Regular discussion', 'Just chatting.', 'discussion')
 $ta$, 'aaa00000-0000-4000-8000-0000000000a1');
 
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   update public.posts set accepted_comment_id = 'eee00000-0000-4000-8000-0000000000e1'
   where id = 'ddd00000-0000-4000-8000-0000000000d2'
-$ta$, 'aaa00000-0000-4000-8000-0000000000a1', '23514',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a1'), '23514',
   'best answer requires the question flair');
 
 -- ── notifications: own rows, read-marker only ───────────────────────────────
@@ -352,18 +346,18 @@ select is(
   (select read_at is not null from public.notifications where id = 'bbb00000-0000-4000-8000-0000000000b1'),
   true, 'user can mark a notification read');
 
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   update public.notifications set type = 'moderation'
   where id = 'bbb00000-0000-4000-8000-0000000000b1'
-$ta$, 'aaa00000-0000-4000-8000-0000000000a1', '42501',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a1'), '42501',
   'user cannot edit notification content');
 
 -- ── verifications: request yes, self-approve no ─────────────────────────────
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   insert into public.verifications (user_id, college_id, kind, method, email_hash, status)
   values ('aaa00000-0000-4000-8000-0000000000a1', 'ccc00000-0000-4000-8000-00000000cc01', 'student', 'email',
     md5('self') || md5('approve'), 'approved')
-$ta$, 'aaa00000-0000-4000-8000-0000000000a1', '42501',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a1'), '42501',
   'user cannot self-approve a verification');
 
 select pg_temp.as_user($ta$
@@ -382,10 +376,10 @@ select is(
     'aaa00000-0000-4000-8000-0000000000a1'),
   0, 'mod_actions audit log is not readable by end users');
 
-select pg_temp.expect_error($ta$
+select is(pg_temp.try_action($ta$
   insert into public.mod_actions (moderator_id, action, target_type, target_id)
   values ('aaa00000-0000-4000-8000-0000000000a1', 'hide', 'post', 'ddd00000-0000-4000-8000-0000000000d1')
-$ta$, 'aaa00000-0000-4000-8000-0000000000a1', '42501',
+$ta$, 'aaa00000-0000-4000-8000-0000000000a1'), '42501',
   'end users cannot write to mod_actions');
 
 select * from finish();
