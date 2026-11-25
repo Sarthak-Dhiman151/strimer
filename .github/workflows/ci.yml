@@ -54,10 +54,28 @@ jobs:
           version: 3.4.0
       # Postgres-only local stack (no full Supabase services needed for tests)
       - run: supabase db start
-      # Applies migrations, then seed.sql
-      - run: supabase db reset
+      # Applies migrations, then seed.sql; output goes to the step summary so it
+      # is retrievable via the API (raw run logs are blocked in this environment)
+      - run: |
+          supabase db reset 2>&1 | tee /tmp/db-reset.txt
+          {
+            echo '### supabase db reset'
+            echo '```'
+            tail -c 30000 /tmp/db-reset.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       # pgTAP access-rule tests (anonymous / member / verified student)
-      - run: supabase test db
+      - run: |
+          set +e
+          supabase test db 2>&1 | tee /tmp/tap.txt
+          code=${PIPESTATUS[0]}
+          {
+            echo '### supabase test db'
+            echo '```'
+            tail -c 60000 /tmp/tap.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
 
   build:
     name: Build and type check
