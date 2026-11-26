@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, arena/20864b5a-strimer] # TEMP: CI diagnostic, remove once pull_request is proven
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: ESLint
+        run: npm run lint
+      - name: Prettier
+        run: npm run format:check
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # No `test` script yet; Vitest arrives with the first unit-tested logic.
+      # --if-present keeps this job green until then, and runs it afterwards.
+      - run: npm test --if-present
+
+  db-tests:
+    name: Database migrations and access rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3.2.0
+        with:
+          version: 3.4.0
+      # Postgres-only local stack (no full Supabase services needed for tests)
+      - run: supabase db start
+      # Applies migrations, then seed.sql; output goes to the step summary so it
+      # is retrievable via the API (raw run logs are blocked in this environment)
+      - run: |
+          supabase db reset 2>&1 | tee /tmp/db-reset.txt
+          {
+            echo '### supabase db reset'
+            echo '```'
+            tail -c 30000 /tmp/db-reset.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # pgTAP access-rule tests (anonymous / member / verified student).
+      # Output is re-emitted as base64-annotated chunks because raw run logs
+      # are not retrievable in this environment; annotations are API-readable.
+      - run: |
+          set +e
+          supabase test db 2>&1 | tee /tmp/tap.txt
+          code=${PIPESTATUS[0]}
+          if [ $code -ne 0 ]; then
+            b64=$(base64 -w 0 /tmp/tap.txt | tail -c 36000)
+            len=${#b64}
+            i=0
+            while [ $i -lt $len ]; do
+              echo "::error title=tap-b64-$((i / 2000))::${b64:i:2000}"
+              i=$((i + 2000))
+            done
+          fi
+          exit $code
+
+  build:
+    name: Build and type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The build generates Next's typed route/layout props, which tsc needs.
+      - name: Build
+        run: npm run build
+      - name: Type check (tsc --noEmit, strict)
+        run: npm run typecheck
