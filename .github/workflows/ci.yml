@@ -80,6 +80,32 @@ jobs:
           fi
           exit $code
 
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3.2.0
+        with:
+          version: 3.4.0
+      - run: supabase db start
+      - run: supabase db reset
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Mint the well-known local-stack anon key (documented Supabase dev
+      # constant; only valid against this ephemeral local container).
+      - name: Point the app at the local Supabase stack
+        run: |
+          ANON=$(node -e "const b=(o)=>Buffer.from(JSON.stringify(o)).toString('base64url');const h=b({alg:'HS256',typ:'JWT'});const p=b({iss:'supabase-demo',role:'anon',exp:1983812996});const s=require('crypto').createHmac('sha256','super-secret-jwt-token-with-at-least-32-characters-long').update(h+'.'+p).digest('base64url');process.stdout.write(h+'.'+p+'.'+s)")
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON" >> "$GITHUB_ENV"
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+
   build:
     name: Build and type check
     runs-on: ubuntu-latest
