@@ -88,8 +88,10 @@ jobs:
       - uses: supabase/setup-cli@v3.2.0
         with:
           version: 3.4.0
-      - run: supabase db start
-      - run: supabase db reset
+      # FULL local stack (API + auth + Postgres): the app queries PostgREST at
+      # 54321. `db start` alone would leave nothing listening there. The first
+      # start applies migrations and seed.sql.
+      - run: supabase start
       - uses: actions/setup-node@v7
         with:
           node-version: 22
