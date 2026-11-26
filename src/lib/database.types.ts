@@ -642,6 +642,10 @@ export type Database = {
         Returns: boolean;
       };
       is_moderator: { Args: Record<PropertyKey, never>; Returns: boolean };
+      own_login_email_hash: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
     };
     Enums: {
       college_type: "government" | "private";

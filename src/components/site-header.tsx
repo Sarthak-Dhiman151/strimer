@@ -22,6 +22,12 @@ export async function SiteHeader() {
         {handle ? (
           <div className="flex items-center gap-2">
             <Link
+              href="/verify"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Get verified
+            </Link>
+            <Link
               href={`/u/${handle}`}
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
