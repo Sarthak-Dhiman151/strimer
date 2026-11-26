@@ -104,7 +104,22 @@ jobs:
           echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON" >> "$GITHUB_ENV"
       - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - run: npm run test:e2e
+      # Diagnostics only on failure: raw run logs are unreachable in this
+      # environment, so re-emit output as base64 annotations (API-readable).
+      - run: |
+          set +e
+          npm run test:e2e 2>&1 | tee /tmp/e2e.txt
+          code=${PIPESTATUS[0]}
+          if [ $code -ne 0 ]; then
+            b64=$(base64 -w 0 /tmp/e2e.txt | tail -c 36000)
+            len=${#b64}
+            i=0
+            while [ $i -lt $len ]; do
+              echo "::error title=e2e-b64-$((i / 2000))::${b64:i:2000}"
+              i=$((i + 2000))
+            done
+          fi
+          exit $code
 
   build:
     name: Build and type check
