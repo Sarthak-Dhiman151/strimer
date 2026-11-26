@@ -24,6 +24,7 @@ Requires Node.js 22+.
 | `npm run typecheck`           | TypeScript, strict mode, no emit           |
 | `npm run format`              | Prettier write (Tailwind sorting)          |
 | `npm run format:check`        | Prettier check                             |
+| `npm run test`                | Vitest unit tests                          |
 | `npx supabase@3.4.0 db reset` | Local DB: migrations + seed (needs Docker) |
 | `npx supabase@3.4.0 test db`  | pgTAP access-rule tests (needs Docker)     |
 
