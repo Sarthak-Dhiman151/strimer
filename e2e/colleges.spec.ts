@@ -27,7 +27,8 @@ test("a college page opens from the list", async ({ page }) => {
 test("home page shows the product promise", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Real college reviews")).toBeVisible();
+  // The header, hero and footer all link to the directory; target the first.
   await expect(
-    page.getByRole("link", { name: "Browse colleges" }),
+    page.getByRole("link", { name: "Browse colleges" }).first(),
   ).toBeVisible();
 });
