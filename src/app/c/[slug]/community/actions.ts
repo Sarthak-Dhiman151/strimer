@@ -94,15 +94,13 @@ export async function createComment(formData: FormData): Promise<void> {
       depth = next;
     }
 
-    const { error } = await supabase
-      .from("comments")
-      .insert({
-        post_id: postId,
-        parent_id: parentId,
-        user_id: user.id,
-        body,
-        depth,
-      });
+    const { error } = await supabase.from("comments").insert({
+      post_id: postId,
+      parent_id: parentId,
+      user_id: user.id,
+      body,
+      depth,
+    });
     if (error) redirect(`/post/${postId}?error=reply-failed`);
   } catch (e) {
     if (e && typeof e === "object" && "digest" in e) throw e;
@@ -167,13 +165,11 @@ export async function toggleCommentVote(formData: FormData): Promise<void> {
       .eq("target_type", "comment")
       .eq("target_id", targetId);
   } else {
-    await supabase
-      .from("votes")
-      .insert({
-        user_id: user.id,
-        target_type: "comment",
-        target_id: targetId,
-      });
+    await supabase.from("votes").insert({
+      user_id: user.id,
+      target_type: "comment",
+      target_id: targetId,
+    });
   }
   if (slug) revalidatePath(`/c/${slug}/community`);
   revalidatePath(`/post/${postId}`);

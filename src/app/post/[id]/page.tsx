@@ -253,9 +253,17 @@ async function PostContent({ params, searchParams }: Props) {
       viewer = await getViewerCommunityState();
       const [c] = await Promise.all([getPostComments(post.id)]);
       comments = c;
-      const commentIds = comments.flatMap((c2) => [c2.id, ...c2.children.map((r) => r.id)]);
+      const commentIds = comments.flatMap((c2) => [
+        c2.id,
+        ...c2.children.map((r) => r.id),
+      ]);
       const authorIds = [
-        ...new Set(comments.flatMap((c2) => [c2.user_id, ...c2.children.map((r) => r.user_id)])),
+        ...new Set(
+          comments.flatMap((c2) => [
+            c2.user_id,
+            ...c2.children.map((r) => r.user_id),
+          ]),
+        ),
       ];
       const [votesC, votesP, v] = await Promise.all([
         getViewerVotedIds("comment", commentIds),
@@ -284,9 +292,7 @@ async function PostContent({ params, searchParams }: Props) {
   const acceptedId = post.accepted_comment_id ?? null;
   const replyTo = sp.reply ?? null;
   const replyParent = replyTo
-    ? comments
-        .flatMap((c) => [c, ...c.children])
-        .find((c) => c.id === replyTo)
+    ? comments.flatMap((c) => [c, ...c.children]).find((c) => c.id === replyTo)
     : undefined;
 
   return (
@@ -357,7 +363,11 @@ async function PostContent({ params, searchParams }: Props) {
               <form action={createComment} className="flex flex-col gap-3">
                 <input type="hidden" name="parentId" value={replyParent.id} />
                 <input type="hidden" name="postId" value={post.id} />
-                <input type="hidden" name="slug" value={post.college?.slug ?? ""} />
+                <input
+                  type="hidden"
+                  name="slug"
+                  value={post.college?.slug ?? ""}
+                />
                 <textarea
                   name="body"
                   required
@@ -392,7 +402,11 @@ async function PostContent({ params, searchParams }: Props) {
             <CardContent className="pt-6">
               <form action={createComment} className="flex flex-col gap-3">
                 <input type="hidden" name="postId" value={post.id} />
-                <input type="hidden" name="slug" value={post.college?.slug ?? ""} />
+                <input
+                  type="hidden"
+                  name="slug"
+                  value={post.college?.slug ?? ""}
+                />
                 <textarea
                   name="body"
                   required
