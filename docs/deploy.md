@@ -52,3 +52,9 @@ This guide turns the app from local-only into a hosted staging environment. Budg
 - [ ] Add branch protection on `main` (PR required + the CI checks — now including the `pull_request` trigger, which works once this workflow file is on `main`).
 - [ ] Point Sentry and an uptime check at the home page and one college page (monitoring step).
 - [ ] Never run SQL by hand against staging/production for schema changes — migrations only, staging first, backup before production migrations.
+
+## Legal decisions to confirm with a lawyer before public beta
+
+- **Minors are allowed on the platform** (team decision). DPDP Act 2023 applies stricter consent/notice rules for under-18 users: confirm the verifiable-parental-consent mechanics required, keep data minimisation (we collect only handles + hashed college emails — no names, birthdates or phone numbers), and reflect it in the Privacy Policy and Terms.
+- Defamation/takedown/appeal process and the IT Rules 2021 grievance-officer publication (see spec's trust & legal section).
+- Source-and-date labelling for pre-filled college facts.

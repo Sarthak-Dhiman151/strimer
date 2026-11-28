@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { Building2, MapPin, Star } from "lucide-react";
+import { Building2, MapPin, PenLine, Star } from "lucide-react";
 
 import { toggleFollow } from "@/app/c/[slug]/actions";
+import { CollegeTabs } from "@/components/college-tabs";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -28,38 +30,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${slug} · Strimer`,
     description: `Verified student reviews, ratings and community for ${slug}.`,
   };
-}
-
-const TABS = ["Overview", "Reviews", "Community", "Placements"] as const;
-
-function Tabs({ active }: { active: (typeof TABS)[number] }) {
-  return (
-    <nav
-      className="mb-5 flex gap-1 overflow-x-auto border-b"
-      aria-label="College sections"
-    >
-      {TABS.map((tab) =>
-        tab === active ? (
-          <span
-            key={tab}
-            aria-current="page"
-            className="-mb-px border-b-2 border-primary px-3 py-2 text-sm font-medium"
-          >
-            {tab}
-          </span>
-        ) : (
-          <span
-            key={tab}
-            aria-disabled="true"
-            title="Coming soon"
-            className="px-3 py-2 text-sm text-muted-foreground/60"
-          >
-            {tab}
-          </span>
-        ),
-      )}
-    </nav>
-  );
 }
 
 function Stars({ value }: { value: number }) {
@@ -150,7 +120,7 @@ async function CollegeContent({ params }: Props) {
         </div>
       </div>
 
-      <Tabs active="Overview" />
+      <CollegeTabs slug={college.slug} active="overview" />
 
       {/* Rating card — rule 5 is shown honestly in both states */}
       <Card>
@@ -207,6 +177,13 @@ async function CollegeContent({ params }: Props) {
               {follow.following ? "Following ✓" : "Follow"}
             </Button>
           </form>
+          <Link
+            href={`/review/new?college=${college.slug}`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <PenLine className="size-4" aria-hidden />
+            Write a review
+          </Link>
           <Button size="sm" disabled title="Community is coming soon">
             Ask a question
           </Button>
