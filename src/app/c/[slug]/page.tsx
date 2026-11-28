@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import { Building2, MapPin, Star } from "lucide-react";
+
 import { toggleFollow } from "@/app/c/[slug]/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -60,6 +62,24 @@ function Tabs({ active }: { active: (typeof TABS)[number] }) {
   );
 }
 
+function Stars({ value }: { value: number }) {
+  const filled = Math.round(value);
+  return (
+    <div
+      className="flex items-center gap-0.5 text-amber-400"
+      aria-label={`${value} out of 5 stars`}
+    >
+      {Array.from({ length: 5 }, (_, i) => (
+        <Star
+          key={i}
+          className={i < filled ? "size-5 fill-current" : "size-5 opacity-30"}
+          aria-hidden
+        />
+      ))}
+    </div>
+  );
+}
+
 async function CollegeContent({ params }: Props) {
   const { slug: raw } = await params;
   const slug = decodeURIComponent(raw).toLowerCase();
@@ -95,24 +115,36 @@ async function CollegeContent({ params }: Props) {
   const rating = ratingDisplay(college.rating_cache, college.review_count);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      {/* Hero */}
       <div>
-        <h1 className="text-xl leading-snug font-bold">{college.name}</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {[college.city, college.state].filter(Boolean).join(", ") || "India"}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-start gap-3">
+          <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground sm:flex">
+            <Building2 className="size-6" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-2xl leading-tight font-bold tracking-tight sm:text-3xl">
+              {college.name}
+            </h1>
+            <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+              <MapPin className="size-3.5 shrink-0" aria-hidden />
+              {[college.city, college.state].filter(Boolean).join(", ") ||
+                "India"}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
           {college.type ? (
-            <span className="rounded-full bg-muted px-2 py-0.5 capitalize">
+            <span className="rounded-full bg-secondary px-2.5 py-1 font-medium text-secondary-foreground capitalize">
               {college.type}
             </span>
           ) : null}
           {college.nirf_rank ? (
-            <span className="rounded-full bg-muted px-2 py-0.5">
+            <span className="rounded-full bg-secondary px-2.5 py-1 font-medium text-secondary-foreground">
               NIRF #{college.nirf_rank}
             </span>
           ) : null}
-          <span className="rounded-full bg-muted px-2 py-0.5">
+          <span className="rounded-full bg-secondary px-2.5 py-1 font-medium text-secondary-foreground">
             {feeRangeLabel(college.fee_min, college.fee_max)}
           </span>
         </div>
@@ -120,16 +152,43 @@ async function CollegeContent({ params }: Props) {
 
       <Tabs active="Overview" />
 
+      {/* Rating card — rule 5 is shown honestly in both states */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">
-            {rating.visible ? `★ ${rating.label}` : "Rating hidden"}
-          </CardTitle>
-          <CardDescription>
-            {rating.visible
-              ? `Average of six aspects from ${rating.reviewCount} verified reviews`
-              : `Average appears once ${MIN_REVIEWS_FOR_RATING} verified reviews are in — ${college.review_count} so far`}
-          </CardDescription>
+          {rating.visible ? (
+            <>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl leading-none font-bold">
+                  {rating.label}
+                </span>
+                <Stars value={rating.average} />
+              </div>
+              <CardDescription>
+                Average of six aspects from {rating.reviewCount} verified
+                reviews
+              </CardDescription>
+            </>
+          ) : (
+            <>
+              <CardTitle className="text-lg">Rating hidden</CardTitle>
+              <CardDescription>
+                A college&apos;s average appears only after{" "}
+                {MIN_REVIEWS_FOR_RATING} verified reviews — this college has{" "}
+                {college.review_count} so far.
+              </CardDescription>
+              <div
+                className="mt-1 h-2 w-40 overflow-hidden rounded-full bg-muted"
+                role="presentation"
+              >
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{
+                    width: `${Math.min(100, (college.review_count / MIN_REVIEWS_FOR_RATING) * 100)}%`,
+                  }}
+                />
+              </div>
+            </>
+          )}
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">
           <form action={toggleFollow}>
@@ -164,32 +223,30 @@ async function CollegeContent({ params }: Props) {
         </CardContent>
       </Card>
 
-      <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-        <div className="rounded-lg border bg-card p-3">
-          <dt className="text-muted-foreground">Verified reviews</dt>
-          <dd className="font-medium">{college.review_count}</dd>
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <dt className="text-muted-foreground">Annual fee</dt>
-          <dd className="font-medium">
-            {feeRangeLabel(college.fee_min, college.fee_max)}
-          </dd>
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <dt className="text-muted-foreground">Type</dt>
-          <dd className="font-medium capitalize">{college.type ?? "—"}</dd>
-        </div>
-        <div className="rounded-lg border bg-card p-3">
-          <dt className="text-muted-foreground">NIRF rank</dt>
-          <dd className="font-medium">
-            {college.nirf_rank ? `#${college.nirf_rank}` : "—"}
-          </dd>
-        </div>
+      {/* Facts */}
+      <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+        {[
+          { label: "Verified reviews", value: String(college.review_count) },
+          {
+            label: "Annual fee",
+            value: feeRangeLabel(college.fee_min, college.fee_max),
+          },
+          { label: "Type", value: college.type ?? "—" },
+          {
+            label: "NIRF rank",
+            value: college.nirf_rank ? `#${college.nirf_rank}` : "—",
+          },
+        ].map(({ label, value }) => (
+          <div key={label} className="rounded-lg border bg-card p-3">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="mt-0.5 font-medium">{value}</dd>
+          </div>
+        ))}
       </dl>
 
       <p className="text-xs text-muted-foreground">
-        Facts are pre-filled from public sources; the reviews tab, community and
-        placement reports arrive in the next milestone steps.
+        Facts are pre-filled from public sources. The reviews tab, community and
+        placement reports arrive in the next milestone.
       </p>
     </div>
   );
@@ -198,16 +255,16 @@ async function CollegeContent({ params }: Props) {
 function CollegeSkeleton() {
   return (
     <div className="flex flex-col gap-4">
-      <div className="h-7 w-2/3 animate-pulse rounded bg-muted" />
+      <div className="h-9 w-2/3 animate-pulse rounded bg-muted" />
+      <div className="h-36 animate-pulse rounded-xl bg-muted" />
       <div className="h-24 animate-pulse rounded-xl bg-muted" />
-      <div className="h-40 animate-pulse rounded-xl bg-muted" />
     </div>
   );
 }
 
 export default function CollegePage({ params }: Props) {
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6">
+    <div className="mx-auto w-full max-w-3xl px-4 py-8">
       {/* params is runtime data under cacheComponents: await inside the boundary */}
       <Suspense fallback={<CollegeSkeleton />}>
         <CollegeContent params={params} />

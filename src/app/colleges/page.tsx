@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
+
+import { Building2, SlidersHorizontal, X } from "lucide-react";
 
 import { CollegeCard } from "@/components/college-card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +32,7 @@ const FEE_OPTIONS = [
 ];
 
 function selectClass() {
-  return "h-9 rounded-md border border-input bg-background px-2 text-sm";
+  return "h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
 }
 
 async function CollegesContent({
@@ -48,6 +51,11 @@ async function CollegesContent({
         : undefined,
     ratedOnly: sp.rated === "1",
   };
+  const hasFilters =
+    Boolean(filters.state) ||
+    Boolean(filters.type) ||
+    Boolean(filters.maxFee) ||
+    filters.ratedOnly;
 
   let colleges: Awaited<ReturnType<typeof listColleges>>;
   let states: string[] = [];
@@ -62,21 +70,28 @@ async function CollegesContent({
 
   if (!configured) {
     return (
-      <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-        College data lives in Supabase. Copy <code>.env.example</code> to{" "}
-        <code>.env.local</code>, run the migrations and seed, then reload.
-      </p>
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed p-10 text-center">
+        <Building2 className="size-8 text-muted-foreground/50" aria-hidden />
+        <p className="max-w-sm text-sm text-muted-foreground">
+          College data lives in Supabase. Copy <code>.env.example</code> to{" "}
+          <code>.env.local</code>, run the migrations and seed, then reload.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {/* No-JS GET form: filters are plain links between server renders */}
+      {/* No-JS GET form: filters survive without JavaScript */}
       <form
         method="get"
         action="/colleges"
         className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3"
       >
+        <span className="mr-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+          <SlidersHorizontal className="size-4" aria-hidden />
+          Filters
+        </span>
         <select
           name="state"
           defaultValue={sp.state ?? ""}
@@ -128,15 +143,40 @@ async function CollegesContent({
         </Button>
       </form>
 
-      <p className="text-sm text-muted-foreground">
-        {colleges.length} {colleges.length === 1 ? "college" : "colleges"}
-        {sp.state ? ` in ${sp.state}` : ""}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            {colleges.length}
+          </span>{" "}
+          {colleges.length === 1 ? "college" : "colleges"}
+          {filters.state ? ` in ${filters.state}` : ""}
+        </p>
+        {hasFilters ? (
+          <Link
+            href="/colleges"
+            className="flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            <X className="size-3.5" aria-hidden />
+            Clear filters
+          </Link>
+        ) : null}
+      </div>
 
       {colleges.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-          No colleges match these filters yet.
-        </p>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed p-10 text-center">
+          <Building2 className="size-8 text-muted-foreground/50" aria-hidden />
+          <p className="text-sm text-muted-foreground">
+            No colleges match these filters yet.
+          </p>
+          {hasFilters ? (
+            <Link
+              href="/colleges"
+              className="text-sm text-primary underline-offset-4 hover:underline"
+            >
+              Clear all filters
+            </Link>
+          ) : null}
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
           {colleges.map((c) => (
@@ -154,14 +194,20 @@ export default function CollegesPage({
   searchParams: SearchParams;
 }) {
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6">
-      <h1 className="mb-1 text-xl font-bold">Colleges</h1>
-      <p className="mb-5 text-sm text-muted-foreground">
-        Every rating comes from verified students and alumni. Ratings appear
-        once a college has 5 verified reviews.
+    <div className="mx-auto w-full max-w-3xl px-4 py-8">
+      <h1 className="text-2xl font-bold tracking-tight">Colleges</h1>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
+        Every rating comes from verified students and alumni. A college&apos;s
+        average appears once it has 5 verified reviews — not before.
       </p>
       <Suspense
-        fallback={<div className="h-40 animate-pulse rounded-xl bg-muted" />}
+        fallback={
+          <div className="flex flex-col gap-3">
+            <div className="h-14 animate-pulse rounded-xl bg-muted" />
+            <div className="h-28 animate-pulse rounded-xl bg-muted" />
+            <div className="h-28 animate-pulse rounded-xl bg-muted" />
+          </div>
+        }
       >
         <CollegesContent searchParams={searchParams} />
       </Suspense>
