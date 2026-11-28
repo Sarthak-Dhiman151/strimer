@@ -642,6 +642,16 @@ export type Database = {
         Returns: boolean;
       };
       is_moderator: { Args: Record<PropertyKey, never>; Returns: boolean };
+      notify_insert: {
+        Args: {
+          p_dedupe_minutes?: number;
+          p_target_id: string;
+          p_target_type: Database["public"]["Enums"]["notification_target_type"];
+          p_type: Database["public"]["Enums"]["notification_type"];
+          p_user_id: string;
+        };
+        Returns: undefined;
+      };
       own_login_email_hash: {
         Args: Record<PropertyKey, never>;
         Returns: string;

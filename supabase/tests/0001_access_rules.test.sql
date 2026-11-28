@@ -332,9 +332,14 @@ $ta$, 'aaa00000-0000-4000-8000-0000000000a1'), '23514',
 insert into public.notifications (id, user_id, type, target_type, target_id)
   values ('bbb00000-0000-4000-8000-0000000000b1', 'aaa00000-0000-4000-8000-0000000000a1', 'answer', 'post', 'ddd00000-0000-4000-8000-0000000000d1');
 
+-- (the count is scoped to this row: the notification triggers from migration
+-- 20261128120000 legitimately add rows for earlier actions in this test)
 select is(
-  pg_temp.count_as('select count(*)::int from public.notifications',
-    'aaa00000-0000-4000-8000-0000000000a1'),
+  pg_temp.count_as($ta$
+    select count(*)::int from public.notifications
+    where id = 'bbb00000-0000-4000-8000-0000000000b1'
+      and user_id = 'aaa00000-0000-4000-8000-0000000000a1'
+  $ta$, 'aaa00000-0000-4000-8000-0000000000a1'),
   1, 'user sees their own notifications');
 
 select pg_temp.as_user($ta$
