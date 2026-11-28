@@ -3,19 +3,21 @@ import Link from "next/link";
 const TABS = [
   { key: "overview", label: "Overview", path: (s: string) => `/c/${s}` },
   { key: "reviews", label: "Reviews", path: (s: string) => `/c/${s}/reviews` },
+  {
+    key: "community",
+    label: "Community",
+    path: (s: string) => `/c/${s}/community`,
+  },
 ] as const;
 
-const SOON = [
-  { key: "community", label: "Community" },
-  { key: "placements", label: "Placements" },
-] as const;
+const SOON = [{ key: "placements", label: "Placements" }] as const;
 
 export function CollegeTabs({
   slug,
   active,
 }: {
   slug: string;
-  active: "overview" | "reviews";
+  active: "overview" | "reviews" | "community";
 }) {
   return (
     <nav
