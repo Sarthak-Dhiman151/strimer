@@ -1,16 +1,19 @@
 import Link from "next/link";
 
-import { GraduationCap } from "lucide-react";
+import { Bell, GraduationCap } from "lucide-react";
 
 import { signOut } from "@/app/login/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { getUnreadNotificationCount } from "@/lib/notifications";
 import { getOwnProfile } from "@/lib/profile";
 
 export async function SiteHeader() {
   let handle: string | null = null;
+  let unread = 0;
   try {
     const profile = await getOwnProfile();
     handle = profile?.handle ?? null;
+    if (handle) unread = await getUnreadNotificationCount();
   } catch {
     // Supabase not configured (fresh clone / preview) — render signed-out state.
   }
@@ -37,6 +40,26 @@ export async function SiteHeader() {
           </Link>
           {handle ? (
             <>
+              <Link
+                href="/notifications"
+                aria-label={
+                  unread > 0
+                    ? `Notifications, ${unread} unread`
+                    : "Notifications"
+                }
+                className={buttonVariants({
+                  variant: "ghost",
+                  size: "sm",
+                  className: "relative px-2",
+                })}
+              >
+                <Bell className="size-4" aria-hidden />
+                {unread > 0 ? (
+                  <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none font-bold text-primary-foreground">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                ) : null}
+              </Link>
               <Link
                 href="/verify"
                 className={buttonVariants({ variant: "outline", size: "sm" })}
