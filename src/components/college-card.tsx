@@ -1,7 +1,9 @@
 import Link from "next/link";
 
-import { feeRangeLabel, ratingDisplay } from "@/lib/rating";
+import { MapPin, Star } from "lucide-react";
+
 import type { CollegeCardData } from "@/lib/colleges";
+import { feeRangeLabel, ratingDisplay } from "@/lib/rating";
 
 export function CollegeCard({ college }: { college: CollegeCardData }) {
   const rating = ratingDisplay(college.rating_cache, college.review_count);
@@ -9,25 +11,31 @@ export function CollegeCard({ college }: { college: CollegeCardData }) {
   return (
     <Link
       href={`/c/${college.slug}`}
-      className="block rounded-xl border bg-card p-4 shadow-sm transition-colors hover:bg-accent/50"
+      className="group block rounded-xl border bg-card p-4 shadow-sm transition-colors outline-none hover:border-primary/40 hover:bg-accent/30 focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="leading-snug font-semibold">{college.name}</h3>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <h3 className="leading-snug font-semibold group-hover:text-primary">
+            {college.name}
+          </h3>
+          <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+            <MapPin className="size-3.5 shrink-0" aria-hidden />
             {[college.city, college.state].filter(Boolean).join(", ") ||
               "India"}
           </p>
         </div>
         {rating.visible ? (
-          <div className="shrink-0 rounded-lg bg-primary px-2 py-1 text-center text-primary-foreground">
-            <div className="text-base leading-none font-bold">
+          <div className="flex shrink-0 items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-primary-foreground">
+            <Star className="size-4 fill-current" aria-hidden />
+            <span className="text-sm leading-none font-bold">
               {rating.label}
-            </div>
-            <div className="text-[10px] opacity-90">★</div>
+            </span>
           </div>
         ) : (
-          <div className="shrink-0 rounded-lg border border-dashed px-2 py-1 text-center text-[10px] leading-tight text-muted-foreground">
+          <div
+            className="shrink-0 rounded-lg border border-dashed px-2 py-1.5 text-center text-[10px] leading-tight text-muted-foreground"
+            title="Ratings appear after 5 verified reviews"
+          >
             rating
             <br />
             hidden
